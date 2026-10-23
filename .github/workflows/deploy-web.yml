@@ -1,0 +1,64 @@
+
+name: Deploy Dr4ox Motor Web
+
+on:
+  push:
+    branches:
+      - main
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: dr4oxmotor-production
+  cancel-in-progress: true
+
+jobs:
+  deploy:
+    name: Build Flutter Web and Deploy to Vercel
+    runs-on: ubuntu-latest
+
+    env:
+      VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
+      VERCEL_ORG_ID: ${{ secrets.VERCEL_ORG_ID }}
+      VERCEL_PROJECT_ID: ${{ secrets.VERCEL_PROJECT_ID }}
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Install Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      - name: Install Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          flutter-version: '3.13.2'
+          channel: stable
+
+      - name: Check Flutter
+        run: flutter --version
+
+      - name: Install Flutter dependencies
+        run: flutter pub get
+
+      - name: Prepare SQLite for Web
+        run: dart run sqflite_common_ffi_web:setup
+
+      - name: Build Flutter Web
+        run: flutter build web
+
+      - name: Install Vercel CLI
+        run: npm install --global vercel@latest
+
+      - name: Pull Vercel project settings
+        run: vercel pull --yes --environment=production
+
+      - name: Prepare Vercel build
+        run: vercel build --prod
+
+      - name: Deploy to Vercel
+        run: vercel deploy --prebuilt --prod
